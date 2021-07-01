@@ -7,12 +7,15 @@ from conversions import *
 
 
 class GUI:
+
+    CART_TO_POL = 0
+    POL_TO_CART = 1
+
     def __init__(self):
 
         self.app = QApplication([])
         self.app.setApplicationDisplayName("CartPolar")
         self.window = QMainWindow()
-        self.window.setWindowTitle("Polar to Cartesian")
 
         # Layout with the before image (left) and the after image (right)
         self.leftImageLabel = self.QLabelMouseDetection(self.window, self)
@@ -27,10 +30,25 @@ class GUI:
         self.addMenus()
 
         self.updateOriginalImage(self.getExampleImage())
+        self.setMode(self.CART_TO_POL)
 
     def run(self):
         self.window.show()
         self.app.exec_()
+
+    def setMode(self, mode):
+        self.mode = mode
+
+        if mode == self.CART_TO_POL:
+            newTitle = "Cartesian to Polar"
+            center = (0,0)
+        else:
+            newTitle = "Polar to Cartesian"
+            center = None
+
+        self.window.setWindowTitle(newTitle)
+        self.updateConvertedImage(center)
+
 
     # Put the OpenCV image passed in the PyQt label passed
     def updateLabel(self, label, image):
@@ -50,8 +68,11 @@ class GUI:
         self.updateConvertedImage((0,0))
 
     # Update the converted (right) picture
-    def updateConvertedImage(self, center):
-        self.rightImage = cartesianToPolar(self.leftImage, center)
+    def updateConvertedImage(self, center=None):
+        if center:
+            self.rightImage = cartesianToPolar(self.leftImage, center)
+        else:
+            self.rightImage = polarToCartesian(self.leftImage, (500,500))
         self.updateLabel(self.rightImageLabel, self.rightImage)
 
     # Generate circles pattern in an OpenCV image
@@ -80,6 +101,19 @@ class GUI:
         self.close_action.triggered.connect(self.window.close)
         self.close_action.setShortcut(QKeySequence.fromString("Ctrl+Q"))
         self.menu.addAction(self.close_action)
+
+
+        self.options_menu = self.window.menuBar().addMenu("&Options")
+
+        self.cart_to_pol_action = QAction("&Cartesian to Polar")
+        self.cart_to_pol_action.triggered.connect(lambda : self.setMode(self.CART_TO_POL))
+        self.cart_to_pol_action.setShortcut(QKeySequence.fromString("Ctrl+C"))
+        self.options_menu.addAction(self.cart_to_pol_action)
+
+        self.pol_to_cart_action = QAction("&Polar to Cartesian")
+        self.pol_to_cart_action.triggered.connect(lambda : self.setMode(self.POL_TO_CART))
+        self.pol_to_cart_action.setShortcut(QKeySequence.fromString("Ctrl+P"))
+        self.options_menu.addAction(self.pol_to_cart_action)
 
 
         self.help_menu = self.window.menuBar().addMenu("&Help")
@@ -131,17 +165,19 @@ class GUI:
         def qSizeToTuple(self, size):
             return (size.width(), size.height())
 
-        # Detect when mouse is pressed and update right image
+        # Detect when mouse is pressed and update right image,
+        # if the selected mode is Cartesian to Polar
         def mousePressEvent(self, e):
-            mousePos = self.qPointToTuple(e.pos())
-            labelSize = self.qSizeToTuple(self.size())
-            ratio = self.getTupleRatio(mousePos, labelSize)
+            if self.gui.mode == self.gui.CART_TO_POL:
+                mousePos = self.qPointToTuple(e.pos())
+                labelSize = self.qSizeToTuple(self.size())
+                ratio = self.getTupleRatio(mousePos, labelSize)
 
-            imgsize = self.gui.leftImage.shape
-            imgsize = (imgsize[0], imgsize[1])
+                imgsize = self.gui.leftImage.shape
+                imgsize = (imgsize[0], imgsize[1])
 
-            newCenter = self.scaleRatio(ratio, imgsize)
-            self.gui.updateConvertedImage(newCenter)
+                newCenter = self.scaleRatio(ratio, imgsize)
+                self.gui.updateConvertedImage(newCenter)
 
 if __name__ == "__main__":
     GUI().run()

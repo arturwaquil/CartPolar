@@ -24,6 +24,13 @@ def cartesianToPolar(imgCart, center):
     cx, cy = center
     h, w, _ = imgCart.shape
     radius = getRadius(h,w,cx,cy)
-    imgPol = cv2.warpPolar(imgCart, (radius,360), (cx,cy),
-        radius, cv2.INTER_LINEAR+cv2.WARP_FILL_OUTLIERS)
+    imgPol = cv2.warpPolar(imgCart, (radius,360), (cx,cy), radius, cv2.INTER_LINEAR+cv2.WARP_FILL_OUTLIERS)
     return rotate(imgPol,90)
+
+def polarToCartesian(imgPol, shape):
+    h, w = shape
+    cx, cy = int(w/2),int(h/2)
+    radius = getRadius(h,w,cx,cy)
+    rotImg = rotate(imgPol,270)
+    imgCart = cv2.warpPolar(rotImg, (w,h), (cx,cy), radius, cv2.WARP_INVERSE_MAP+cv2.WARP_FILL_OUTLIERS)
+    return imgCart
