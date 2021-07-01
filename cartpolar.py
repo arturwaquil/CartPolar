@@ -31,7 +31,15 @@ def save_image():
     else:
         print("Cancelled")
 
-
+def show_about_dialog():
+    text = "<center>" \
+           "<h2>CartPolar</h2>" \
+           "<p>CartPolar is a program that converts images " \
+           "from polar coordinates to cartesian and vice-versa.</p>" \
+           "<p>Created by <a href=\"https://inf.ufrgs.br/~awcampana\">Artur Waquil Campana</a></p>" \
+           "<a href=\"https://github.com/arturwaquil/CartPolar\">See this project on GitHub</a>" \
+           "</center>"
+    QMessageBox.about(window, "About CartPolar", text)
 
 # End of menu bar functions
 
@@ -111,6 +119,19 @@ if __name__ == "__main__":
     save_action.triggered.connect(save_image)
     save_action.setShortcut(QKeySequence.Save)
     menu.addAction(save_action)
+
+    close_action = QAction("&Close")
+    close_action.triggered.connect(window.close)
+    close_action.setShortcut(QKeySequence.fromString("Ctrl+Q"))
+    menu.addAction(close_action)
+
+
+    help_menu = window.menuBar().addMenu("&Help")
+
+    about_action = QAction("&About")
+    about_action.triggered.connect(show_about_dialog)
+    about_action.setShortcut(QKeySequence.fromString("F1"))
+    help_menu.addAction(about_action)
 
     # End of menu bar definitions
 
