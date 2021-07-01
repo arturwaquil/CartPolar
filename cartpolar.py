@@ -118,9 +118,13 @@ class GUI:
 
         self.help_menu = self.window.menuBar().addMenu("&Help")
 
+        self.controls_action = QAction("&Controls")
+        self.controls_action.triggered.connect(self.show_controls_dialog)
+        self.controls_action.setShortcut(QKeySequence.fromString("F1"))
+        self.help_menu.addAction(self.controls_action)
+
         self.about_action = QAction("&About")
         self.about_action.triggered.connect(self.show_about_dialog)
-        self.about_action.setShortcut(QKeySequence.fromString("F1"))
         self.help_menu.addAction(self.about_action)
 
     def open_file(self):
@@ -136,11 +140,21 @@ class GUI:
         if dialog.exec_() == QDialog.Accepted:
             cv2.imwrite(dialog.selectedFiles()[0], rightImage)
 
+    def show_controls_dialog(self):
+        text = "<center>" \
+            "<h2>CartPolar controls</h2>" \
+            "<p>CartPolar allows you to convert images from Cartesian coordinates to Polar and vice-versa.</p>" \
+            "<p>To convert from <b>Cartesian to Polar</b>, make sure the respective option is selected and click "\
+            "on the original image to define the center for the conversion.</p>" \
+            "<p>To convert from <b>Polar to Cartesian</b>, simply select that option in the menu.</p>"\
+            "</center>"
+        QMessageBox.about(self.window, "CartPolar controls", text)
+
     def show_about_dialog(self):
         text = "<center>" \
-            "<h2>CartPolar</h2>" \
+            "<h2>About CartPolar</h2>" \
             "<p>CartPolar is a program that converts images " \
-            "from polar coordinates to cartesian and vice-versa.</p>" \
+            "from Cartesian coordinates to Polar and vice-versa.</p>" \
             "<p>Created by <a href=\"https://inf.ufrgs.br/~awcampana\">Artur Waquil Campana</a></p>" \
             "<a href=\"https://github.com/arturwaquil/CartPolar\">See this project on GitHub</a>" \
             "</center>"
