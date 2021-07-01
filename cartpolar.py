@@ -4,15 +4,36 @@ import cv2
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 
+class MainWindow(QMainWindow):
+    def mousePressEvent(self, e):
+        print("mouse pressed at " + str(e.pos()))
+
+# Menu bar functions
+
 def open_file():
-    global file_path
     global leftImage, rightImage, leftImageLabel, rightImageLabel
-    path = QFileDialog.getOpenFileName(window, "Open")[0]
+    path = QFileDialog.getOpenFileName(window, "Open", filter="Image Files (*.png *.jpg *.bmp)")[0]
     if path:
         leftImage = cv2.imread(path)
-        leftImageLabel.setPixmap(cvToQt(leftImage).scaledToHeight(500))
         rightImage = cartesianToPolar(leftImage, (540,540))
-        rightImageLabel.setPixmap(cvToQt(rightImage).scaledToHeight(500))
+        updateImage(leftImageLabel, leftImage)
+        updateImage(rightImageLabel, rightImage)
+
+def save_image():
+    global rightImage
+    dialog = QFileDialog()
+    dialog.setAcceptMode(QFileDialog.AcceptSave)
+    dialog.setDefaultSuffix("png")
+    if dialog.exec_() == QDialog.Accepted:
+        path = dialog.selectedFiles()[0]
+        print("Saved file " + path)
+        cv2.imwrite(path, rightImage)
+    else:
+        print("Cancelled")
+
+
+
+# End of menu bar functions
 
 def getExampleImage():
     # Generate circles pattern in an OpenCV image
@@ -55,36 +76,51 @@ def cartesianToPolar(imgCart, center):
         radius, cv2.INTER_LINEAR+cv2.WARP_FILL_OUTLIERS)
     return rotate(imgPol,90)
 
+def updateImage(label, image):
+    label.setPixmap(cvToQt(image).scaledToHeight(500))
+
 if __name__ == "__main__":
 
     app = QApplication([])
     app.setApplicationDisplayName("CartPolar")
-
-    window = QMainWindow()
+    window = MainWindow()
     window.setWindowTitle("Polar to Cartesian")
 
+    # Layout with the before image (left) and the after image (right)
     leftImageLabel = QLabel(window)
     rightImageLabel = QLabel(window)
-
-    leftImage = getExampleImage()
-    rightImage = cartesianToPolar(leftImage, (540,540))
-
-    leftImageLabel.setPixmap(cvToQt(leftImage).scaledToHeight(500))
-    rightImageLabel.setPixmap(cvToQt(rightImage).scaledToHeight(500))
-
-    layout = QHBoxLayout()
-    layout.addWidget(leftImageLabel)
-    layout.addWidget(rightImageLabel)
+    imgsLayout = QHBoxLayout()
+    imgsLayout.addWidget(leftImageLabel)
+    imgsLayout.addWidget(rightImageLabel)
 
     mainWidget = QWidget()
-    mainWidget.setLayout(layout)
+    mainWidget.setLayout(imgsLayout)
     window.setCentralWidget(mainWidget)
 
+
+    # Menu bar definitions
+
     menu = window.menuBar().addMenu("&File")
+
     open_action = QAction("&Open image")
     open_action.triggered.connect(open_file)
     open_action.setShortcut(QKeySequence.Open)
     menu.addAction(open_action)
+
+    save_action = QAction("&Save resulting image")
+    save_action.triggered.connect(save_image)
+    save_action.setShortcut(QKeySequence.Save)
+    menu.addAction(save_action)
+
+    # End of menu bar definitions
+
+
+    # OpenCV images
+    leftImage = getExampleImage()
+    rightImage = cartesianToPolar(leftImage, (540,540))
+
+    updateImage(leftImageLabel, leftImage)
+    updateImage(rightImageLabel, rightImage)
 
     window.show()
     app.exec_()
