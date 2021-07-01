@@ -3,167 +3,145 @@ from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QHBoxLayout, \
 from PyQt5.QtGui import QPixmap, QImage, QKeySequence
 import numpy as np
 import cv2
+from conversions import *
 
 
-# Subclass of QLabel created to detect when the mouse is pressed
-class QLabelMouseDetection(QLabel):
+class GUI:
+    def __init__(self):
 
-    def getTupleRatio(self, t1, t2):
-        return (t1[0]/t2[0], t1[1]/t2[1])
+        self.app = QApplication([])
+        self.app.setApplicationDisplayName("CartPolar")
+        self.window = QMainWindow()
+        self.window.setWindowTitle("Polar to Cartesian")
 
-    def scaleRatio(self, ratio, imgsize):
-        return (int(round(ratio[0]*imgsize[0])), int(round(ratio[1]*imgsize[1])))
+        # Layout with the before image (left) and the after image (right)
+        self.leftImageLabel = self.QLabelMouseDetection(self.window, self)
+        self.rightImageLabel = QLabel(self.window)
+        imgsLayout = QHBoxLayout()
+        imgsLayout.addWidget(self.leftImageLabel)
+        imgsLayout.addWidget(self.rightImageLabel)
 
-    def qPointToTuple(self, point):
-        return (point.x(), point.y())
+        mainWidget = QWidget()
+        mainWidget.setLayout(imgsLayout)
+        self.window.setCentralWidget(mainWidget)
+        self.addMenus()
 
-    def qSizeToTuple(self, size):
-        return (size.width(), size.height())
+        self.updateOriginalImage(self.getExampleImage())
 
-    # Detect when mouse is pressed and update right image
-    def mousePressEvent(self, e):
-        global leftImage, rightImage, rightImageLabel
+    def run(self):
+        self.window.show()
+        self.app.exec_()
 
-        mousePos = self.qPointToTuple(e.pos())
-        labelSize = self.qSizeToTuple(self.size())
-        ratio = self.getTupleRatio(mousePos, labelSize)
+    # Put the OpenCV image passed in the PyQt label passed
+    def updateLabel(self, label, image):
 
-        imgsize = leftImage.shape
-        imgsize = (imgsize[0], imgsize[1])
+        # Convert OpenCV image (numpy array) to QPixmap
+        def cvToQt(img):
+            height, width, _ = img.shape
+            bytesPerLine = 3 * width
+            return QPixmap(QImage(img.data, width, height, bytesPerLine, QImage.Format_RGB888).rgbSwapped())
 
-        newCenter = self.scaleRatio(ratio, imgsize)
-        rightImage = cartesianToPolar(leftImage, newCenter)
-        updateImage(rightImageLabel, rightImage)
+        label.setPixmap(cvToQt(image).scaled(500, 500))
+
+    # Update the original (left) picture
+    def updateOriginalImage(self, image):
+        self.leftImage = image
+        self.updateLabel(self.leftImageLabel, self.leftImage)
+        self.updateConvertedImage((0,0))
+
+    # Update the converted (right) picture
+    def updateConvertedImage(self, center):
+        self.rightImage = cartesianToPolar(self.leftImage, center)
+        self.updateLabel(self.rightImageLabel, self.rightImage)
+
+    # Generate circles pattern in an OpenCV image
+    def getExampleImage(self):
+        img = np.zeros((1080,1080,3), np.uint8)
+        transitions = [264, 231, 194, 163, 129, 100, 72, 50, 29, 11]
+        for i, transition in enumerate(transitions):
+            cv2.circle(img, (540,540), transition, [(255,255,255),(0,0,0)][i%2], -1)
+        return img
+
+    def addMenus(self):
+
+        self.menu = self.window.menuBar().addMenu("&File")
+
+        self.open_action = QAction("&Open image")
+        self.open_action.triggered.connect(self.open_file)
+        self.open_action.setShortcut(QKeySequence.Open)
+        self.menu.addAction(self.open_action)
+
+        self.save_action = QAction("&Save resulting image")
+        self.save_action.triggered.connect(self.save_image)
+        self.save_action.setShortcut(QKeySequence.Save)
+        self.menu.addAction(self.save_action)
+
+        self.close_action = QAction("&Close")
+        self.close_action.triggered.connect(self.window.close)
+        self.close_action.setShortcut(QKeySequence.fromString("Ctrl+Q"))
+        self.menu.addAction(self.close_action)
 
 
-# Menu bar functions
+        self.help_menu = self.window.menuBar().addMenu("&Help")
 
-def open_file():
-    global leftImage, rightImage, leftImageLabel, rightImageLabel
-    path = QFileDialog.getOpenFileName(window, "Open", filter="Image Files (*.png *.jpg *.bmp)")[0]
-    if path:
-        leftImage = cv2.imread(path)
-        rightImage = cartesianToPolar(leftImage, (540,540))
-        updateImage(leftImageLabel, leftImage)
-        updateImage(rightImageLabel, rightImage)
+        self.about_action = QAction("&About")
+        self.about_action.triggered.connect(self.show_about_dialog)
+        self.about_action.setShortcut(QKeySequence.fromString("F1"))
+        self.help_menu.addAction(self.about_action)
 
-def save_image():
-    global rightImage
-    dialog = QFileDialog()
-    dialog.setAcceptMode(QFileDialog.AcceptSave)
-    dialog.setDefaultSuffix("png")
-    if dialog.exec_() == QDialog.Accepted:
-        cv2.imwrite(dialog.selectedFiles()[0], rightImage)
+    def open_file(self):
+        path = QFileDialog.getOpenFileName(self.window, "Open", filter="Image Files (*.png *.jpg *.bmp)")[0]
+        if path:
+            self.updateOriginalImage(cv2.imread(path))
 
-def show_about_dialog():
-    text = "<center>" \
-           "<h2>CartPolar</h2>" \
-           "<p>CartPolar is a program that converts images " \
-           "from polar coordinates to cartesian and vice-versa.</p>" \
-           "<p>Created by <a href=\"https://inf.ufrgs.br/~awcampana\">Artur Waquil Campana</a></p>" \
-           "<a href=\"https://github.com/arturwaquil/CartPolar\">See this project on GitHub</a>" \
-           "</center>"
-    QMessageBox.about(window, "About CartPolar", text)
+    def save_image(self):
+        global rightImage
+        dialog = QFileDialog()
+        dialog.setAcceptMode(QFileDialog.AcceptSave)
+        dialog.setDefaultSuffix("png")
+        if dialog.exec_() == QDialog.Accepted:
+            cv2.imwrite(dialog.selectedFiles()[0], rightImage)
 
+    def show_about_dialog(self):
+        text = "<center>" \
+            "<h2>CartPolar</h2>" \
+            "<p>CartPolar is a program that converts images " \
+            "from polar coordinates to cartesian and vice-versa.</p>" \
+            "<p>Created by <a href=\"https://inf.ufrgs.br/~awcampana\">Artur Waquil Campana</a></p>" \
+            "<a href=\"https://github.com/arturwaquil/CartPolar\">See this project on GitHub</a>" \
+            "</center>"
+        QMessageBox.about(self.window, "About CartPolar", text)
 
-# Generate circles pattern in an OpenCV image
-def getExampleImage():
-    img = np.zeros((1080,1080,3), np.uint8)
-    transitions = [264, 231, 194, 163, 129, 100, 72, 50, 29, 11]
-    for i, transition in enumerate(transitions):
-        cv2.circle(img, (540,540), transition, [(255,255,255),(0,0,0)][i%2], -1)
-    return img
+    # Subclass of QLabel created to detect when the mouse is pressed
+    class QLabelMouseDetection(QLabel):
 
-# Convert OpenCV image (numpy array) to QPixmap
-def cvToQt(img):
-    height, width, _ = img.shape
-    bytesPerLine = 3 * width
-    return QPixmap(QImage(img.data, width, height, bytesPerLine, QImage.Format_RGB888).rgbSwapped())
+        def __init__(self, window, gui):
+            super().__init__(window)
+            self.gui = gui
 
-def getRadius(h,w,cx,cy):
-    dA = abs(h-cy)
-    dB = abs(h-dA)
-    dC = abs(w-cx)
-    dD = abs(w-dC)
-    return max([dA, dB, dC, dD])
+        def getTupleRatio(self, t1, t2):
+            return (t1[0]/t2[0], t1[1]/t2[1])
 
-def rotate(img, angle):
-    angle = int(angle/90)
+        def scaleRatio(self, ratio, imgsize):
+            return (int(round(ratio[0]*imgsize[0])), int(round(ratio[1]*imgsize[1])))
 
-    for i in range(angle):
-        h,w,_ = img.shape
-        temp = np.zeros((w,h,3), np.uint8)
-        for j in range(0,h):
-            temp[:,h-j-1,:] = img[j,:,:]
-        img = temp
+        def qPointToTuple(self, point):
+            return (point.x(), point.y())
 
-    return img
+        def qSizeToTuple(self, size):
+            return (size.width(), size.height())
 
-def cartesianToPolar(imgCart, center):
-    cx, cy = center
-    h, w, _ = imgCart.shape
-    radius = getRadius(h,w,cx,cy)
-    imgPol = cv2.warpPolar(imgCart, (radius,360), (cx,cy),
-        radius, cv2.INTER_LINEAR+cv2.WARP_FILL_OUTLIERS)
-    return rotate(imgPol,90)
+        # Detect when mouse is pressed and update right image
+        def mousePressEvent(self, e):
+            mousePos = self.qPointToTuple(e.pos())
+            labelSize = self.qSizeToTuple(self.size())
+            ratio = self.getTupleRatio(mousePos, labelSize)
 
-def updateImage(label, image):
-    label.setPixmap(cvToQt(image).scaled(500, 500))
+            imgsize = self.gui.leftImage.shape
+            imgsize = (imgsize[0], imgsize[1])
+
+            newCenter = self.scaleRatio(ratio, imgsize)
+            self.gui.updateConvertedImage(newCenter)
 
 if __name__ == "__main__":
-
-    app = QApplication([])
-    app.setApplicationDisplayName("CartPolar")
-    window = QMainWindow()
-    window.setWindowTitle("Polar to Cartesian")
-
-    # Layout with the before image (left) and the after image (right)
-    leftImageLabel = QLabelMouseDetection(window)
-    rightImageLabel = QLabel(window)
-    imgsLayout = QHBoxLayout()
-    imgsLayout.addWidget(leftImageLabel)
-    imgsLayout.addWidget(rightImageLabel)
-
-    mainWidget = QWidget()
-    mainWidget.setLayout(imgsLayout)
-    window.setCentralWidget(mainWidget)
-
-
-    # Menu bar definitions
-
-    menu = window.menuBar().addMenu("&File")
-
-    open_action = QAction("&Open image")
-    open_action.triggered.connect(open_file)
-    open_action.setShortcut(QKeySequence.Open)
-    menu.addAction(open_action)
-
-    save_action = QAction("&Save resulting image")
-    save_action.triggered.connect(save_image)
-    save_action.setShortcut(QKeySequence.Save)
-    menu.addAction(save_action)
-
-    close_action = QAction("&Close")
-    close_action.triggered.connect(window.close)
-    close_action.setShortcut(QKeySequence.fromString("Ctrl+Q"))
-    menu.addAction(close_action)
-
-
-    help_menu = window.menuBar().addMenu("&Help")
-
-    about_action = QAction("&About")
-    about_action.triggered.connect(show_about_dialog)
-    about_action.setShortcut(QKeySequence.fromString("F1"))
-    help_menu.addAction(about_action)
-
-
-
-    # OpenCV images
-    leftImage = getExampleImage()
-    rightImage = cartesianToPolar(leftImage, (540,540))
-
-    updateImage(leftImageLabel, leftImage)
-    updateImage(rightImageLabel, rightImage)
-
-    window.show()
-    app.exec_()
+    GUI().run()
