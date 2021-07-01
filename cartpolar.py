@@ -1,12 +1,40 @@
+from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QHBoxLayout, \
+                            QLabel, QDialog, QFileDialog, QMessageBox, QAction
+from PyQt5.QtGui import QPixmap, QImage, QKeySequence
 import numpy as np
 import cv2
 
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
 
-class MainWindow(QMainWindow):
+# Subclass of QLabel created to detect when the mouse is pressed
+class QLabelMouseDetection(QLabel):
+
+    def getTupleRatio(self, t1, t2):
+        return (t1[0]/t2[0], t1[1]/t2[1])
+
+    def scaleRatio(self, ratio, imgsize):
+        return (int(round(ratio[0]*imgsize[0])), int(round(ratio[1]*imgsize[1])))
+
+    def qPointToTuple(self, point):
+        return (point.x(), point.y())
+
+    def qSizeToTuple(self, size):
+        return (size.width(), size.height())
+
+    # Detect when mouse is pressed and update right image
     def mousePressEvent(self, e):
-        print("mouse pressed at " + str(e.pos()))
+        global leftImage, rightImage, rightImageLabel
+
+        mousePos = self.qPointToTuple(e.pos())
+        labelSize = self.qSizeToTuple(self.size())
+        ratio = self.getTupleRatio(mousePos, labelSize)
+
+        imgsize = leftImage.shape
+        imgsize = (imgsize[0], imgsize[1])
+
+        newCenter = self.scaleRatio(ratio, imgsize)
+        rightImage = cartesianToPolar(leftImage, newCenter)
+        updateImage(rightImageLabel, rightImage)
+
 
 # Menu bar functions
 
@@ -25,11 +53,7 @@ def save_image():
     dialog.setAcceptMode(QFileDialog.AcceptSave)
     dialog.setDefaultSuffix("png")
     if dialog.exec_() == QDialog.Accepted:
-        path = dialog.selectedFiles()[0]
-        print("Saved file " + path)
-        cv2.imwrite(path, rightImage)
-    else:
-        print("Cancelled")
+        cv2.imwrite(dialog.selectedFiles()[0], rightImage)
 
 def show_about_dialog():
     text = "<center>" \
@@ -41,10 +65,9 @@ def show_about_dialog():
            "</center>"
     QMessageBox.about(window, "About CartPolar", text)
 
-# End of menu bar functions
 
+# Generate circles pattern in an OpenCV image
 def getExampleImage():
-    # Generate circles pattern in an OpenCV image
     img = np.zeros((1080,1080,3), np.uint8)
     transitions = [264, 231, 194, 163, 129, 100, 72, 50, 29, 11]
     for i, transition in enumerate(transitions):
@@ -85,17 +108,17 @@ def cartesianToPolar(imgCart, center):
     return rotate(imgPol,90)
 
 def updateImage(label, image):
-    label.setPixmap(cvToQt(image).scaledToHeight(500))
+    label.setPixmap(cvToQt(image).scaled(500, 500))
 
 if __name__ == "__main__":
 
     app = QApplication([])
     app.setApplicationDisplayName("CartPolar")
-    window = MainWindow()
+    window = QMainWindow()
     window.setWindowTitle("Polar to Cartesian")
 
     # Layout with the before image (left) and the after image (right)
-    leftImageLabel = QLabel(window)
+    leftImageLabel = QLabelMouseDetection(window)
     rightImageLabel = QLabel(window)
     imgsLayout = QHBoxLayout()
     imgsLayout.addWidget(leftImageLabel)
@@ -133,7 +156,6 @@ if __name__ == "__main__":
     about_action.setShortcut(QKeySequence.fromString("F1"))
     help_menu.addAction(about_action)
 
-    # End of menu bar definitions
 
 
     # OpenCV images
