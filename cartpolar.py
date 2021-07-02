@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QHBoxLayout, \
                             QLabel, QDialog, QFileDialog, QMessageBox, QAction
-from PyQt5.QtGui import QPixmap, QImage, QKeySequence
+from PyQt5.QtGui import QPixmap, QImage, QKeySequence, QIcon
 import numpy as np
 import cv2
 from conversions import *
@@ -15,6 +15,7 @@ class GUI:
 
         self.app = QApplication([])
         self.app.setApplicationDisplayName("CartPolar")
+        self.app.setWindowIcon(QIcon("assets/cartpolar.ico"))
         self.window = QMainWindow()
 
         # Layout with the before image (left) and the after image (right)
